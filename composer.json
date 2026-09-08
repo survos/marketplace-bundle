@@ -29,7 +29,9 @@
         "symfony/console": "^8.1",
         "symfony/dependency-injection": "^8.1",
         "symfony/framework-bundle": "^8.1",
-        "symfony/http-client-contracts": "^3.7"
+        "symfony/http-client-contracts": "^3.7",
+        "doctrine/orm": "^3.3",
+        "doctrine/doctrine-bundle": "^3.2"
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",

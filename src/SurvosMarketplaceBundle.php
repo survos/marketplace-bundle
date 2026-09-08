@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Survos\MarketplaceBundle;
 
 use Survos\Kit\AbstractSurvosBundle;
+use Survos\Kit\Traits\HasDoctrineEntities;
 use Survos\Kit\SurvosKitBundle;
 use Survos\Ebay\Auth\EbayCredentials;
 use Survos\Ebay\EbayEnvironment;
@@ -16,6 +17,7 @@ use Survos\MarketplaceBundle\Adapter\MercadoLibreAdapterFactory;
 use Survos\MarketplaceBundle\Service\MarketplaceService;
 use Survos\MarketplaceBundle\Token\EbayTokenProviderFactory;
 use Survos\MarketplaceBundle\Token\EtsyTokenProviderFactory;
+use Survos\MarketplaceBundle\Token\DoctrineTokenStore;
 use Survos\MarketplaceBundle\Token\FileTokenStore;
 use Survos\MarketplaceBundle\Token\MercadoLibreTokenProviderFactory;
 use Survos\MarketplaceContracts\Contract\TokenStoreInterface;
@@ -40,12 +42,19 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
 // Symfony\Component\HttpKernel\Bundle\Bundle <-- Flex auto-registration marker (see Survos\Kit\AbstractSurvosBundle)
 final class SurvosMarketplaceBundle extends AbstractSurvosBundle
 {
+    use HasDoctrineEntities;
+
     public function configure(DefinitionConfigurator $definition): void
     {
         $definition->rootNode()
             ->children()
+                ->enumNode('token_store')
+                    ->info('Where OAuth tokens live. "doctrine" (default) survives redeploys and is shared across processes; "file" writes JSON under token_dir and suits a single-process dev machine. A container filesystem is replaced on every deploy, and two processes with separate files will rotate each other\'s refresh tokens away.')
+                    ->values(['doctrine', 'file'])
+                    ->defaultValue('doctrine')
+                ->end()
                 ->scalarNode('token_dir')
-                    ->info('Where FileTokenStore keeps OAuth tokens. One JSON file per connection; keep it out of the webroot and out of git.')
+                    ->info('Only used by token_store: file.')
                     ->defaultValue('%kernel.project_dir%/var/marketplace-tokens')
                 ->end()
                 ->arrayNode('ebay')
@@ -112,7 +121,11 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
             ->args([service(MarketplaceRegistry::class), '%survos_marketplace.connections%']);
 
         $services->set(FileTokenStore::class)->args([$config['token_dir']]);
-        $services->alias(TokenStoreInterface::class, FileTokenStore::class);
+        $services->set(DoctrineTokenStore::class);
+        $services->alias(
+            TokenStoreInterface::class,
+            'file' === ($config['token_store'] ?? 'doctrine') ? FileTokenStore::class : DoctrineTokenStore::class,
+        );
 
         // Each adapter is registered only when its client is actually installed, so
         // an app that sells on one marketplace need not require the other.
