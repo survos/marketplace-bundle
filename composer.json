@@ -45,6 +45,9 @@
     "extra": {
         "symfony": {
             "require": "^8.0"
+        },
+        "branch-alias": {
+            "dev-main": "2.27.x-dev"
         }
     }
 }

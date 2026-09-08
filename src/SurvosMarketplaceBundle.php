@@ -6,13 +6,21 @@ namespace Survos\MarketplaceBundle;
 
 use Survos\Kit\AbstractSurvosBundle;
 use Survos\Kit\SurvosKitBundle;
+use Survos\Ebay\Auth\EbayCredentials;
+use Survos\Ebay\EbayEnvironment;
+use Survos\MarketplaceBundle\Adapter\EbayAdapterFactory;
+use Survos\MarketplaceBundle\Adapter\MercadoLibreAdapterFactory;
 use Survos\MarketplaceBundle\Service\MarketplaceService;
+use Survos\MarketplaceBundle\Token\EbayTokenProviderFactory;
+use Survos\MarketplaceBundle\Token\FileTokenStore;
+use Survos\MarketplaceContracts\Contract\TokenStoreInterface;
 use Survos\MarketplaceContracts\Registry\MarketplaceRegistry;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Kernel\RequiredBundle;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
+use function Symfony\Component\DependencyInjection\Loader\Configurator\inline_service;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_iterator;
 
@@ -31,6 +39,22 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
     {
         $definition->rootNode()
             ->children()
+                ->scalarNode('token_dir')
+                    ->info('Where FileTokenStore keeps OAuth tokens. One JSON file per connection; keep it out of the webroot and out of git.')
+                    ->defaultValue('%kernel.project_dir%/var/marketplace-tokens')
+                ->end()
+                ->arrayNode('ebay')
+                    ->info('eBay application keyset. Sandbox and production keysets are separate and not interchangeable.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('client_id')->defaultNull()->end()
+                        ->scalarNode('client_secret')->defaultNull()->end()
+                        ->scalarNode('ru_name')
+                            ->info("eBay's redirect-URI ALIAS, not a URL. Passing the URL fails as an unhelpful invalid_request.")
+                            ->defaultNull()
+                        ->end()
+                    ->end()
+                ->end()
                 ->arrayNode('connections')
                     ->info('One entry per seller account. The key is the connection name used to look up tokens.')
                     ->useAttributeAsKey('name')
@@ -68,5 +92,41 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
 
         $services->set(MarketplaceService::class)
             ->args([service(MarketplaceRegistry::class), '%survos_marketplace.connections%']);
+
+        $services->set(FileTokenStore::class)->args([$config['token_dir']]);
+        $services->alias(TokenStoreInterface::class, FileTokenStore::class);
+
+        // Each adapter is registered only when its client is actually installed, so
+        // an app that sells on one marketplace need not require the other.
+        if (class_exists(EbayCredentials::class)) {
+            $services->set(EbayTokenProviderFactory::class)
+                ->args([
+                    service('http_client'),
+                    service(TokenStoreInterface::class),
+                    // (string) rather than ?? '': an env placeholder is a non-null
+                    // string at build time and resolves to null at runtime, so ??
+                    // never fires and EbayCredentials gets null for a string arg.
+                    inline_service(EbayCredentials::class)->args([
+                        (string) ($config['ebay']['client_id'] ?? ''),
+                        (string) ($config['ebay']['client_secret'] ?? ''),
+                        $config['ebay']['ru_name'],
+                    ]),
+                    EbayEnvironment::Sandbox,
+                ]);
+
+            $services->set(EbayAdapterFactory::class)
+                ->args([
+                    service('http_client'),
+                    // The factory takes a callable, not a provider: one process may
+                    // talk to several sellers, and each needs its own token.
+                    [service(EbayTokenProviderFactory::class), 'forConnection'],
+                ])
+                ->tag('survos_marketplace.adapter_factory');
+        }
+
+        if (class_exists(\Survos\MercadoLibre\MercadoLibreSite::class)) {
+            $services->set(MercadoLibreAdapterFactory::class)
+                ->tag('survos_marketplace.adapter_factory');
+        }
     }
 }
