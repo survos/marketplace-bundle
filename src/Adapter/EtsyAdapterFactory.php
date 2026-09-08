@@ -7,6 +7,8 @@ namespace Survos\MarketplaceBundle\Adapter;
 use Survos\Etsy\Auth\EtsyCredentials;
 use Survos\Etsy\Generated\SellerTaxonomyApi;
 use Survos\Etsy\Generated\ShopListingApi;
+use Survos\Etsy\Generated\ShopProcessingProfilesApi;
+use Survos\Etsy\Generated\ShopShippingProfileApi;
 use Survos\Etsy\Http\EtsyTransport;
 use Survos\MarketplaceBundle\Token\EtsyTokenProviderFactory;
 use Survos\MarketplaceContracts\Contract\AdapterFactoryInterface;
@@ -70,11 +72,19 @@ final readonly class EtsyAdapterFactory implements AdapterFactoryInterface
         return new EtsyAdapter(
             listings: new ShopListingApi($transport),
             taxonomyApi: new SellerTaxonomyApi($transport),
+            shippingProfiles: new ShopShippingProfileApi($transport),
+            processingProfiles: new ShopProcessingProfilesApi($transport),
             transport: $transport,
             httpClient: $this->httpClient,
             shopId: (int) $connection->requiredOption('shop_id'),
             whoMade: (string) $connection->option('who_made', 'someone_else'),
             whenMade: (string) $connection->option('when_made', 'before_2007'),
+            shippingProfileId: null !== $connection->option('shipping_profile_id')
+                ? (int) $connection->option('shipping_profile_id')
+                : null,
+            readinessStateId: null !== $connection->option('readiness_state_id')
+                ? (int) $connection->option('readiness_state_id')
+                : null,
         );
     }
 }

@@ -8,6 +8,8 @@ use Survos\Etsy\Generated\Model as Etsy;
 use Survos\Etsy\Generated\SellerTaxonomyApi;
 use Survos\Etsy\Http\EtsyTransportInterface;
 use Survos\Etsy\Generated\ShopListingApi;
+use Survos\Etsy\Generated\ShopProcessingProfilesApi;
+use Survos\Etsy\Generated\ShopShippingProfileApi;
 use Survos\MarketplaceContracts\Contract\MarketplaceAdapterInterface;
 use Survos\MarketplaceContracts\Exception\ListingRejectedException;
 use Survos\MarketplaceContracts\Model\AttributeDefinition;
@@ -46,9 +48,28 @@ final class EtsyAdapter implements MarketplaceAdapterInterface
     public function __construct(
         private readonly ShopListingApi $listings,
         private readonly SellerTaxonomyApi $taxonomyApi,
+        private readonly ShopShippingProfileApi $shippingProfiles,
+        private readonly ShopProcessingProfilesApi $processingProfiles,
         private readonly EtsyTransportInterface $transport,
         private readonly HttpClientInterface $httpClient,
         private readonly int $shopId,
+        /**
+         * Required for PHYSICAL listings, though Etsy's contract does not say so:
+         * shipping_profile_id is absent from createDraftListing's `required` list,
+         * and the API still rejects the call with
+         * "A shipping_profile_id is required for physical listings."
+         *
+         * Null means "use the shop's first profile", which is right for a seller
+         * with one and wrong for a seller with several -- hence configurable.
+         */
+        private readonly ?int $shippingProfileId = null,
+        /**
+         * Also required for physical listings, and also absent from the
+         * contract's `required` list. Etsy calls it a processing profile in the
+         * UI and a readiness state in the API. Discovered the same way the
+         * shipping profile was: by the API refusing the call.
+         */
+        private readonly ?int $readinessStateId = null,
         /** Etsy demands who_made/when_made on every listing; these are the defaults. */
         private readonly string $whoMade = 'someone_else',
         private readonly string $whenMade = 'before_2007',
@@ -182,6 +203,8 @@ final class EtsyAdapter implements MarketplaceAdapterInterface
             who_made: $this->whoMade,
             when_made: $this->whenMade,
             taxonomy_id: (int) $draft->categoryId,
+            shipping_profile_id: $this->resolveShippingProfileId(),
+            readiness_state_id: $this->resolveReadinessStateId(),
         ));
 
         if (null === $listing->listing_id) {
@@ -236,6 +259,65 @@ final class EtsyAdapter implements MarketplaceAdapterInterface
     public function withdraw(string $externalId): void
     {
         $this->listings->deleteListing((int) $externalId);
+    }
+
+    /**
+     * The shipping profile to attach.
+     *
+     * Falls back to the shop's first profile when none is configured, and fails
+     * with the available ids when the shop has none -- which is a real state: a
+     * seller who only lists digital items has no shipping profile at all, and
+     * Etsy's own error does not say what to do about it.
+     */
+    private function resolveShippingProfileId(): int
+    {
+        if (null !== $this->shippingProfileId) {
+            return $this->shippingProfileId;
+        }
+
+        $profiles = $this->shippingProfiles->getShopShippingProfiles($this->shopId)->results ?? [];
+
+        foreach ($profiles as $profile) {
+            if ($profile instanceof Etsy\ShopShippingProfile && null !== $profile->shipping_profile_id) {
+                return $profile->shipping_profile_id;
+            }
+        }
+
+        throw new ListingRejectedException('etsy', [], sprintf(
+            'Etsy requires a shipping_profile_id for physical listings and shop %d has none. '
+            . 'Create one in Shop Manager > Settings > Shipping settings, then set '
+            . 'shipping_profile_id in the connection options.',
+            $this->shopId,
+        ));
+    }
+
+    /**
+     * The processing profile ("readiness state") to attach.
+     *
+     * Same shape as the shipping profile, and required for the same reason: the
+     * contract does not mark it required, the API refuses the call without it.
+     */
+    private function resolveReadinessStateId(): int
+    {
+        if (null !== $this->readinessStateId) {
+            return $this->readinessStateId;
+        }
+
+        $profiles = $this->processingProfiles->getShopReadinessStateDefinitions($this->shopId)->results ?? [];
+
+        foreach ($profiles as $profile) {
+            $id = $profile->readiness_state_id ?? $profile->processing_profile_id ?? null;
+            if (null !== $id) {
+                return (int) $id;
+            }
+        }
+
+        throw new ListingRejectedException('etsy', [], sprintf(
+            'Etsy requires a readiness_state_id (processing profile) for physical listings and '
+            . 'shop %d has none. Create one in Shop Manager > Settings > Shipping settings, then '
+            . 'set readiness_state_id in the connection options.',
+            $this->shopId,
+        ));
     }
 
     /**
