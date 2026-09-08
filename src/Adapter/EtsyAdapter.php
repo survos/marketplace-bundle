@@ -191,6 +191,53 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
         return new AttributeSchema($categoryId, $definitions);
     }
 
+    /** A single-valued draft attribute, or null when absent or multi-valued. */
+    private function attr(ListingDraft $draft, string $name): ?string
+    {
+        $value = $draft->attributes[$name] ?? null;
+
+        return is_string($value) && '' !== $value ? $value : null;
+    }
+
+    /**
+     * Etsy's tag and material rules are strict and enforced at write time: at most
+     * 13 entries, 20 characters each, and only letters, numbers, spaces and a few
+     * punctuation marks. A single bad entry rejects the whole listing, so anything
+     * that cannot be cleaned is dropped rather than sent.
+     *
+     * @return list<string>
+     */
+    private function tagList(ListingDraft $draft, string $name): array
+    {
+        $raw = $draft->attributes[$name] ?? [];
+        $raw = is_string($raw) ? [$raw] : $raw;
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($raw as $tag) {
+            if (!is_string($tag)) {
+                continue;
+            }
+
+            // Accents are transliterated rather than stripped, so "Curaçao" stays
+            // "Curacao" instead of collapsing to "Curaao".
+            $tag = @iconv('UTF-8', 'ASCII//TRANSLIT', $tag) ?: $tag;
+            $tag = trim(preg_replace('/\s+/', ' ', preg_replace('/[^A-Za-z0-9 \-\x27]/', ' ', $tag)) ?? '');
+
+            if ('' === $tag || mb_strlen($tag) > 20) {
+                continue;
+            }
+
+            $key = mb_strtolower($tag);
+            $clean[$key] ??= $tag;
+        }
+
+        return array_slice(array_values($clean), 0, 13);
+    }
+
     public function publish(ListingDraft $draft): PublishedListing
     {
         if (null === $draft->categoryId) {
@@ -202,11 +249,13 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
             title: $draft->title,
             description: $draft->description,
             price: (float) $draft->price->toDecimal(),
-            who_made: $this->whoMade,
-            when_made: $this->whenMade,
+            who_made: $this->attr($draft, 'who_made') ?? $this->whoMade,
+            when_made: $this->attr($draft, 'when_made') ?? $this->whenMade,
             taxonomy_id: (int) $draft->categoryId,
             shipping_profile_id: $this->resolveShippingProfileId(),
             readiness_state_id: $this->resolveReadinessStateId(),
+            materials: $this->tagList($draft, 'materials') ?: null,
+            tags: $this->tagList($draft, 'tags') ?: null,
         ));
 
         if (null === $listing->listing_id) {
