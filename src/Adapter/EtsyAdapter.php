@@ -10,6 +10,7 @@ use Survos\Etsy\Http\EtsyTransportInterface;
 use Survos\Etsy\Generated\ShopListingApi;
 use Survos\Etsy\Generated\ShopProcessingProfilesApi;
 use Survos\Etsy\Generated\ShopShippingProfileApi;
+use Survos\MarketplaceContracts\Contract\DraftPublisherInterface;
 use Survos\MarketplaceContracts\Contract\MarketplaceAdapterInterface;
 use Survos\MarketplaceContracts\Exception\ListingRejectedException;
 use Survos\MarketplaceContracts\Model\AttributeDefinition;
@@ -40,7 +41,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * than either provider's server-side answer, and the honest thing is to score it
  * transparently rather than pretend it is the same operation.
  */
-final class EtsyAdapter implements MarketplaceAdapterInterface
+final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherInterface
 {
     /** @var list<array{id: int, name: string, path: list<string>}>|null */
     private ?array $taxonomy = null;
@@ -259,6 +260,37 @@ final class EtsyAdapter implements MarketplaceAdapterInterface
     public function withdraw(string $externalId): void
     {
         $this->listings->deleteListing((int) $externalId);
+    }
+
+    public function createsDrafts(): bool
+    {
+        // Not a configuration choice: createDraftListing is Etsy's only creation
+        // endpoint, so everything this adapter makes starts invisible.
+        return true;
+    }
+
+    public function activate(string $externalId): PublishedListing
+    {
+        // PATCH with state=active is what turns a draft into a live listing. This
+        // is the moment Etsy charges the $0.20 listing fee, which is exactly why
+        // it is a separate, deliberate call rather than part of publish().
+        $listing = $this->listings->updateListing(
+            $this->shopId,
+            (int) $externalId,
+            new Etsy\UpdateListingRequest(state: 'active'),
+        );
+
+        return new PublishedListing(
+            provider: 'etsy',
+            externalId: $externalId,
+            // Etsy's ShopListing carries no sku field; the caller already knows
+            // which of its own items this was, so inventing one here would be worse
+            // than leaving it empty.
+            sku: '',
+            url: $listing->url,
+            publishedAt: new \DateTimeImmutable(),
+            raw: ['listing_id' => $listing->listing_id, 'state' => $listing->state],
+        );
     }
 
     /**
