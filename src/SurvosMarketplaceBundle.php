@@ -8,11 +8,14 @@ use Survos\Kit\AbstractSurvosBundle;
 use Survos\Kit\SurvosKitBundle;
 use Survos\Ebay\Auth\EbayCredentials;
 use Survos\Ebay\EbayEnvironment;
+use Survos\MercadoLibre\Auth\MercadoLibreCredentials;
+use Survos\MercadoLibre\MercadoLibreSite;
 use Survos\MarketplaceBundle\Adapter\EbayAdapterFactory;
 use Survos\MarketplaceBundle\Adapter\MercadoLibreAdapterFactory;
 use Survos\MarketplaceBundle\Service\MarketplaceService;
 use Survos\MarketplaceBundle\Token\EbayTokenProviderFactory;
 use Survos\MarketplaceBundle\Token\FileTokenStore;
+use Survos\MarketplaceBundle\Token\MercadoLibreTokenProviderFactory;
 use Survos\MarketplaceContracts\Contract\TokenStoreInterface;
 use Survos\MarketplaceContracts\Registry\MarketplaceRegistry;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -76,6 +79,19 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
                         ->end()
                     ->end()
                 ->end()
+                ->arrayNode('mercadolibre')
+                    ->info('Mercado Libre application. Created instantly at developers.mercadolibre.com.<tld> -- no review queue, unlike eBay.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('client_id')->info('The numeric App ID.')->defaultNull()->end()
+                        ->scalarNode('client_secret')->info('The Secret Key.')->defaultNull()->end()
+                        ->scalarNode('redirect_uri')
+                            ->info('Must match a redirect URI registered on the application EXACTLY -- Mercado Libre compares the whole string.')
+                            ->defaultNull()
+                        ->end()
+                        ->scalarNode('site')->info('Site whose auth host sellers are sent to, e.g. MLM.')->defaultValue('MLM')->end()
+                    ->end()
+                ->end()
             ->end();
     }
 
@@ -124,12 +140,28 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
                 ->tag('survos_marketplace.adapter_factory');
         }
 
-        if (class_exists(\Survos\MercadoLibre\MercadoLibreSite::class)) {
+        if (class_exists(MercadoLibreCredentials::class)) {
+            $services->set(MercadoLibreTokenProviderFactory::class)
+                ->args([
+                    service('http_client'),
+                    service(TokenStoreInterface::class),
+                    inline_service(MercadoLibreCredentials::class)->args([
+                        (string) ($config['mercadolibre']['client_id'] ?? ''),
+                        (string) ($config['mercadolibre']['client_secret'] ?? ''),
+                        $config['mercadolibre']['redirect_uri'],
+                    ]),
+                    MercadoLibreSite::tryFrom((string) ($config['mercadolibre']['site'] ?? 'MLM'))
+                        ?? MercadoLibreSite::Mexico,
+                ]);
+
             $services->set(MercadoLibreAdapterFactory::class)
-                // No token provider yet: category discovery and attribute lookup are
-                // public, and that is the half of the interface worth having before a
-                // seller has connected anything.
-                ->args([service('http_client'), null])
+                // The provider is resolved lazily per connection. Category discovery
+                // and attribute lookup still work with no seller token at all, which
+                // is why the transport treats it as optional rather than required.
+                ->args([
+                    service('http_client'),
+                    [service(MercadoLibreTokenProviderFactory::class), 'forConnection'],
+                ])
                 ->tag('survos_marketplace.adapter_factory');
         }
     }
