@@ -11,9 +11,11 @@ use Survos\Ebay\EbayEnvironment;
 use Survos\MercadoLibre\Auth\MercadoLibreCredentials;
 use Survos\MercadoLibre\MercadoLibreSite;
 use Survos\MarketplaceBundle\Adapter\EbayAdapterFactory;
+use Survos\MarketplaceBundle\Adapter\EtsyAdapterFactory;
 use Survos\MarketplaceBundle\Adapter\MercadoLibreAdapterFactory;
 use Survos\MarketplaceBundle\Service\MarketplaceService;
 use Survos\MarketplaceBundle\Token\EbayTokenProviderFactory;
+use Survos\MarketplaceBundle\Token\EtsyTokenProviderFactory;
 use Survos\MarketplaceBundle\Token\FileTokenStore;
 use Survos\MarketplaceBundle\Token\MercadoLibreTokenProviderFactory;
 use Survos\MarketplaceContracts\Contract\TokenStoreInterface;
@@ -63,7 +65,7 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
                     ->useAttributeAsKey('name')
                     ->arrayPrototype()
                         ->children()
-                            ->enumNode('driver')->values(['ebay', 'mercadolibre'])->isRequired()->end()
+                            ->enumNode('driver')->values(['ebay', 'mercadolibre', 'etsy'])->isRequired()->end()
                             ->scalarNode('site')
                                 ->info('Provider marketplace id: EBAY_US, or an ML site such as MLM (Mexico).')
                                 ->isRequired()
@@ -137,6 +139,19 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
                     // talk to several sellers, and each needs its own token.
                     [service(EbayTokenProviderFactory::class), 'forConnection'],
                 ])
+                ->tag('survos_marketplace.adapter_factory');
+        }
+
+        if (class_exists(\Survos\Etsy\Auth\EtsyCredentials::class)) {
+            // No credentials block here on purpose: Etsy's instantly-approved
+            // Seller App tier is scoped to the shop that registered it, so each
+            // seller brings their own keystring and it lives in that connection's
+            // options rather than in shared configuration.
+            $services->set(EtsyTokenProviderFactory::class)
+                ->args([service('http_client'), service(TokenStoreInterface::class)]);
+
+            $services->set(EtsyAdapterFactory::class)
+                ->args([service('http_client'), service(EtsyTokenProviderFactory::class)])
                 ->tag('survos_marketplace.adapter_factory');
         }
 

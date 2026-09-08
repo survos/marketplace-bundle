@@ -36,11 +36,13 @@
         "phpstan/phpstan": "^2.0",
         "symfony/http-client": "^8.1",
         "survos/ebay-php": "^2.5",
-        "survos/mercadolibre-php": "^2.5"
+        "survos/mercadolibre-php": "^2.5",
+        "survos/etsy-php": "^2.27"
     },
     "suggest": {
         "survos/ebay-php": "Required by EbayAdapter.",
-        "survos/mercadolibre-php": "Required by MercadoLibreAdapter."
+        "survos/mercadolibre-php": "Required by MercadoLibreAdapter.",
+        "survos/etsy-php": "Required by EtsyAdapter."
     },
     "extra": {
         "symfony": {
