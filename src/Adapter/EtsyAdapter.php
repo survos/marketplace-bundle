@@ -11,6 +11,7 @@ use Survos\Etsy\Generated\ShopListingApi;
 use Survos\Etsy\Generated\ShopProcessingProfilesApi;
 use Survos\Etsy\Generated\ShopShippingProfileApi;
 use Survos\MarketplaceContracts\Contract\DraftPublisherInterface;
+use Survos\MarketplaceContracts\Contract\ListingRemoverInterface;
 use Survos\MarketplaceContracts\Contract\MarketplaceAdapterInterface;
 use Survos\MarketplaceContracts\Exception\ListingRejectedException;
 use Survos\MarketplaceContracts\Model\AttributeDefinition;
@@ -41,7 +42,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * than either provider's server-side answer, and the honest thing is to score it
  * transparently rather than pretend it is the same operation.
  */
-final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherInterface
+final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherInterface, ListingRemoverInterface
 {
     /** @var list<array{id: int, name: string, path: list<string>}>|null */
     private ?array $taxonomy = null;
@@ -257,7 +258,27 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
         );
     }
 
+    /**
+     * Take the listing down, reversibly.
+     *
+     * This used to call deleteListing, which made Etsy's withdraw() far more
+     * destructive than the other adapters': eBay ends an offer but keeps it,
+     * Mercado Libre closes an item but the record survives. Deactivating matches
+     * them, and matches what a seller means by "I sold it elsewhere" — the
+     * listing, its views and its favourites all survive, and it can be relisted.
+     *
+     * Permanent removal is {@see delete()}, which says so.
+     */
     public function withdraw(string $externalId): void
+    {
+        $this->listings->updateListing(
+            $this->shopId,
+            (int) $externalId,
+            new Etsy\UpdateListingRequest(state: 'inactive'),
+        );
+    }
+
+    public function delete(string $externalId): void
     {
         $this->listings->deleteListing((int) $externalId);
     }
