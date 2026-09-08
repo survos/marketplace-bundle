@@ -154,11 +154,19 @@ final class EbayAdapter implements MarketplaceAdapterInterface
                     'DATE' => AttributeValueType::Date,
                     default => AttributeValueType::String,
                 },
-                allowedValues: $values,
+                // aspectMode says whether the values are a menu or a hint.
+                // FREE_TEXT aspects still return sample values, and treating those
+                // as an enum boxes a model into eBay's examples.
+                allowedValues: 'SELECTION_ONLY' === strtoupper((string) ($constraint?->aspectMode ?? ''))
+                    ? $values
+                    : [],
                 // MULTI means unlimited; anything else is single-valued.
                 maxValues: strtoupper((string) ($constraint?->itemToAspectCardinality ?? 'SINGLE')) === 'MULTI'
                     ? null
                     : 1,
+                examples: 'SELECTION_ONLY' === strtoupper((string) ($constraint?->aspectMode ?? ''))
+                    ? []
+                    : $values,
             );
         }
 

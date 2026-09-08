@@ -123,14 +123,20 @@ final class MercadoLibreAdapter implements MarketplaceAdapterInterface
                     'boolean' => AttributeValueType::Boolean,
                     default => AttributeValueType::String,
                 },
-                allowedValues: array_map(
-                    static fn ($v): string => $v->name,
-                    $attribute->allowedValues,
-                ),
+                // Only value_type 'list' is a genuine closed set. A 'string'
+                // attribute's values are SAMPLES -- ORIGIN offers "España, Francia"
+                // in a Mexican postcard category -- so promoting them to an enum
+                // would force a model to mislabel a Chiapas postcard as Spanish.
+                allowedValues: 'list' === $attribute->valueType
+                    ? array_map(static fn ($v): string => $v->name, $attribute->allowedValues)
+                    : [],
                 maxValues: $attribute->multivalued ? null : 1,
                 // The localized label. The neutral model keys on the stable id
                 // (BRAND), so the human name would otherwise be lost.
                 hint: $attribute->name,
+                examples: 'list' === $attribute->valueType
+                    ? []
+                    : array_map(static fn ($v): string => $v->name, $attribute->allowedValues),
             );
         }
 

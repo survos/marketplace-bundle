@@ -126,6 +126,10 @@ final class SurvosMarketplaceBundle extends AbstractSurvosBundle
 
         if (class_exists(\Survos\MercadoLibre\MercadoLibreSite::class)) {
             $services->set(MercadoLibreAdapterFactory::class)
+                // No token provider yet: category discovery and attribute lookup are
+                // public, and that is the half of the interface worth having before a
+                // seller has connected anything.
+                ->args([service('http_client'), null])
                 ->tag('survos_marketplace.adapter_factory');
         }
     }

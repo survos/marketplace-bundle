@@ -19,10 +19,17 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class MercadoLibreAdapterFactory implements AdapterFactoryInterface
 {
-    /** @param callable(string): AccessTokenProviderInterface $tokenProviderFactory */
+    /**
+     * @param (callable(string): AccessTokenProviderInterface)|null $tokenProviderFactory
+     *        null is legitimate: Mercado Libre's category tree, domain discovery and
+     *        attribute endpoints are PUBLIC. A category can be resolved and a listing
+     *        validated before any seller has authorized anything, which is most of
+     *        what this adapter is useful for. Publishing without a token fails loudly
+     *        in the transport rather than silently here.
+     */
     public function __construct(
         private HttpClientInterface $httpClient,
-        private mixed $tokenProviderFactory,
+        private mixed $tokenProviderFactory = null,
     ) {
     }
 
@@ -53,7 +60,9 @@ final readonly class MercadoLibreAdapterFactory implements AdapterFactoryInterfa
 
         $transport = new MercadoLibreTransport(
             $this->httpClient,
-            ($this->tokenProviderFactory)($connection->name),
+            null !== $this->tokenProviderFactory
+                ? ($this->tokenProviderFactory)($connection->name)
+                : null,
         );
 
         return new MercadoLibreAdapter(
