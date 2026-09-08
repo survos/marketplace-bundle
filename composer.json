@@ -1,0 +1,50 @@
+{
+    "name": "survos/marketplace-bundle",
+    "description": "Publish listings to eBay and Mercado Libre through one provider-neutral interface.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": [
+        "symfony",
+        "marketplace",
+        "ebay",
+        "mercadolibre",
+        "listing",
+        "commerce"
+    ],
+    "autoload": {
+        "psr-4": {
+            "Survos\\MarketplaceBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Survos\\MarketplaceBundle\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": "^8.5",
+        "survos/marketplace-contracts": "^2.5",
+        "survos/kit-bundle": "^2.5",
+        "symfony/config": "^8.1",
+        "symfony/console": "^8.1",
+        "symfony/dependency-injection": "^8.1",
+        "symfony/framework-bundle": "^8.1",
+        "symfony/http-client-contracts": "^3.7"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^13.0",
+        "phpstan/phpstan": "^2.0",
+        "symfony/http-client": "^8.1",
+        "survos/ebay-php": "^2.5",
+        "survos/mercadolibre-php": "^2.5"
+    },
+    "suggest": {
+        "survos/ebay-php": "Required by EbayAdapter.",
+        "survos/mercadolibre-php": "Required by MercadoLibreAdapter."
+    },
+    "extra": {
+        "symfony": {
+            "require": "^8.0"
+        }
+    }
+}
