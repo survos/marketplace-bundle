@@ -71,7 +71,7 @@ final readonly class FileTokenStore implements TokenStoreInterface
             'scopes' => $token->scopes,
         ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
 
-        $temp = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        $temp = $file.'.'.bin2hex(random_bytes(4)).'.tmp';
         if (false === file_put_contents($temp, $payload)) {
             throw new \RuntimeException(sprintf('Cannot write token file "%s".', $temp));
         }
@@ -99,6 +99,6 @@ final readonly class FileTokenStore implements TokenStoreInterface
         // outside the token directory, so normalize rather than trust.
         $safe = preg_replace('/[^A-Za-z0-9_.-]/', '_', $connectionName) ?? 'default';
 
-        return rtrim($this->directory, '/') . '/' . $safe . '.json';
+        return rtrim($this->directory, '/').'/'.$safe.'.json';
     }
 }

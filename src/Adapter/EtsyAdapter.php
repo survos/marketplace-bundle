@@ -6,10 +6,10 @@ namespace Survos\MarketplaceBundle\Adapter;
 
 use Survos\Etsy\Generated\Model as Etsy;
 use Survos\Etsy\Generated\SellerTaxonomyApi;
-use Survos\Etsy\Http\EtsyTransportInterface;
 use Survos\Etsy\Generated\ShopListingApi;
 use Survos\Etsy\Generated\ShopProcessingProfilesApi;
 use Survos\Etsy\Generated\ShopShippingProfileApi;
+use Survos\Etsy\Http\EtsyTransportInterface;
 use Survos\MarketplaceContracts\Contract\DraftPublisherInterface;
 use Survos\MarketplaceContracts\Contract\ListingRemoverInterface;
 use Survos\MarketplaceContracts\Contract\MarketplaceAdapterInterface;
@@ -120,13 +120,13 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
             static fn (string $w): bool => mb_strlen($w) > 2,
         ));
 
-        if ($words === []) {
+        if ([] === $words) {
             return [];
         }
 
         $scored = [];
         foreach ($this->taxonomy() as $node) {
-            $haystack = mb_strtolower($node['name'] . ' ' . implode(' ', $node['path']));
+            $haystack = mb_strtolower($node['name'].' '.implode(' ', $node['path']));
             $hits = 0;
             foreach ($words as $word) {
                 if (str_contains($haystack, $word)) {
@@ -140,8 +140,7 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
         }
 
         // Deeper nodes first at equal score: "Postcards" beats "Paper & Party Supplies".
-        usort($scored, static fn (array $a, array $b): int
-            => [$b[0], count($b[1]['path'])] <=> [$a[0], count($a[1]['path'])]);
+        usort($scored, static fn (array $a, array $b): int => [$b[0], count($b[1]['path'])] <=> [$a[0], count($a[1]['path'])]);
 
         $suggestions = [];
         foreach (array_slice($scored, 0, $limit) as [$score, $node]) {
@@ -181,7 +180,7 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
                 valueType: AttributeValueType::String,
                 // Etsy's scales/values are a menu only when the property forbids
                 // free text; otherwise they are suggestions, same trap as the others.
-                allowedValues: false === ($property->supports_variations ?? false) && $values !== [] ? $values : [],
+                allowedValues: false === ($property->supports_variations ?? false) && [] !== $values ? $values : [],
                 maxValues: ($property->supports_variations ?? false) ? null : 1,
                 hint: $property->display_name,
                 examples: $values,
@@ -287,7 +286,7 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
                 );
                 ++$uploaded;
             } catch (\Throwable $e) {
-                $imageErrors[] = $image->url . ': ' . $e->getMessage();
+                $imageErrors[] = $image->url.': '.$e->getMessage();
             }
         }
 
@@ -385,12 +384,7 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
             }
         }
 
-        throw new ListingRejectedException('etsy', [], sprintf(
-            'Etsy requires a shipping_profile_id for physical listings and shop %d has none. '
-            . 'Create one in Shop Manager > Settings > Shipping settings, then set '
-            . 'shipping_profile_id in the connection options.',
-            $this->shopId,
-        ));
+        throw new ListingRejectedException('etsy', [], sprintf('Etsy requires a shipping_profile_id for physical listings and shop %d has none. Create one in Shop Manager > Settings > Shipping settings, then set shipping_profile_id in the connection options.', $this->shopId));
     }
 
     /**
@@ -414,12 +408,7 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
             }
         }
 
-        throw new ListingRejectedException('etsy', [], sprintf(
-            'Etsy requires a readiness_state_id (processing profile) for physical listings and '
-            . 'shop %d has none. Create one in Shop Manager > Settings > Shipping settings, then '
-            . 'set readiness_state_id in the connection options.',
-            $this->shopId,
-        ));
+        throw new ListingRejectedException('etsy', [], sprintf('Etsy requires a readiness_state_id (processing profile) for physical listings and shop %d has none. Create one in Shop Manager > Settings > Shipping settings, then set readiness_state_id in the connection options.', $this->shopId));
     }
 
     /**
@@ -447,7 +436,7 @@ final class EtsyAdapter implements MarketplaceAdapterInterface, DraftPublisherIn
                 $path = [...$trail, $node->name];
                 $flat[] = ['id' => $node->id, 'name' => $node->name, 'path' => $path];
 
-                if (is_array($node->children) && $node->children !== []) {
+                if (is_array($node->children) && [] !== $node->children) {
                     $walk($node->children, $path);
                 }
             }

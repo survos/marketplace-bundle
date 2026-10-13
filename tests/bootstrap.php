@@ -14,17 +14,16 @@ declare(strict_types=1);
  *
  * Delete this once the packages are on Packagist and composer can do it properly.
  */
-
 $mono = dirname(__DIR__, 3);
 
-require $mono . '/vendor/autoload.php';
+require $mono.'/vendor/autoload.php';
 
 $map = [
-    'Survos\\MarketplaceBundle\\' => __DIR__ . '/../src/',
-    'Survos\\MarketplaceContracts\\' => $mono . '/lib/marketplace-contracts/src/',
-    'Survos\\Ebay\\' => $mono . '/lib/ebay-php/src/',
-    'Survos\\MercadoLibre\\' => $mono . '/lib/mercadolibre-php/src/',
-    'Survos\\MarketplaceBundle\\Tests\\' => __DIR__ . '/',
+    'Survos\\MarketplaceBundle\\' => __DIR__.'/../src/',
+    'Survos\\MarketplaceContracts\\' => $mono.'/lib/marketplace-contracts/src/',
+    'Survos\\Ebay\\' => $mono.'/lib/ebay-php/src/',
+    'Survos\\MercadoLibre\\' => $mono.'/lib/mercadolibre-php/src/',
+    'Survos\\MarketplaceBundle\\Tests\\' => __DIR__.'/',
 ];
 
 spl_autoload_register(static function (string $class) use ($map): void {
@@ -33,7 +32,7 @@ spl_autoload_register(static function (string $class) use ($map): void {
             continue;
         }
 
-        $file = $dir . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+        $file = $dir.str_replace('\\', '/', substr($class, strlen($prefix))).'.php';
         if (is_file($file)) {
             require $file;
 

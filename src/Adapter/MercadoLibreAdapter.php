@@ -98,7 +98,7 @@ final class MercadoLibreAdapter implements MarketplaceAdapterInterface
                 name: $prediction->categoryName,
                 // Mercado Libre returns the domain rather than an ancestry path;
                 // it is the closest thing to a breadcrumb available here.
-                path: $prediction->domainName !== null
+                path: null !== $prediction->domainName
                     ? [$prediction->domainName, $prediction->categoryName]
                     : [$prediction->categoryName],
                 // No confidence score is returned, and inventing one would be worse
@@ -153,7 +153,7 @@ final class MercadoLibreAdapter implements MarketplaceAdapterInterface
             availableQuantity: $draft->quantity,
             condition: $this->conditionFor($draft->condition),
             listingType: $this->listingType,
-            buyingMode: $draft->format === ListingFormat::Auction ? BuyingMode::Auction : BuyingMode::BuyItNow,
+            buyingMode: ListingFormat::Auction === $draft->format ? BuyingMode::Auction : BuyingMode::BuyItNow,
             pictures: array_map(
                 static fn (ListingImage $i): Picture => new Picture($i->url),
                 $draft->images,
@@ -199,7 +199,7 @@ final class MercadoLibreAdapter implements MarketplaceAdapterInterface
     private function attributesFor(ListingDraft $draft): array
     {
         $byId = [];
-        if ($draft->categoryId !== null) {
+        if (null !== $draft->categoryId) {
             foreach ($this->writableAttributes($draft->categoryId) as $attribute) {
                 $byId[$attribute->id] = $attribute;
             }
@@ -216,7 +216,7 @@ final class MercadoLibreAdapter implements MarketplaceAdapterInterface
 
                 $attributes[] = new ItemAttribute(
                     id: $name,
-                    valueName: $valueId === null ? $single : null,
+                    valueName: null === $valueId ? $single : null,
                     valueId: $valueId,
                 );
             }

@@ -18,7 +18,7 @@ final readonly class EbayAdapterFactory implements AdapterFactoryInterface
 {
     /**
      * @param callable(string): AccessTokenProviderInterface $tokenProviderFactory
-     *        resolves a connection name to that seller's token provider
+     *                                                                             resolves a connection name to that seller's token provider
      */
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -33,7 +33,7 @@ final readonly class EbayAdapterFactory implements AdapterFactoryInterface
 
     public function supports(string $driver): bool
     {
-        return $driver === 'ebay';
+        return 'ebay' === $driver;
     }
 
     public function create(ConnectionConfiguration $connection): MarketplaceAdapterInterface

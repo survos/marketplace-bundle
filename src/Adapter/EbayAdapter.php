@@ -96,14 +96,14 @@ final class EbayAdapter implements MarketplaceAdapterInterface
         $suggestions = [];
         foreach ($response->categorySuggestions ?? [] as $suggestion) {
             $category = $suggestion->category ?? null;
-            if ($category?->categoryId === null) {
+            if (null === $category?->categoryId) {
                 continue;
             }
 
             // Ancestors come back leaf-first; a breadcrumb reads root-first.
             $path = [];
             foreach (array_reverse($suggestion->categoryTreeNodeAncestors ?? []) as $ancestor) {
-                if ($ancestor->categoryName !== null) {
+                if (null !== $ancestor->categoryName) {
                     $path[] = $ancestor->categoryName;
                 }
             }
@@ -131,7 +131,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
 
         $definitions = [];
         foreach ($metadata->aspects ?? [] as $aspect) {
-            if (!$aspect instanceof Aspect || $aspect->localizedAspectName === null) {
+            if (!$aspect instanceof Aspect || null === $aspect->localizedAspectName) {
                 continue;
             }
 
@@ -139,7 +139,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
 
             $values = [];
             foreach ($aspect->aspectValues ?? [] as $value) {
-                if ($value instanceof AspectValue && $value->localizedValue !== null) {
+                if ($value instanceof AspectValue && null !== $value->localizedValue) {
                     $values[] = $value->localizedValue;
                 }
             }
@@ -161,7 +161,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
                     ? $values
                     : [],
                 // MULTI means unlimited; anything else is single-valued.
-                maxValues: strtoupper((string) ($constraint?->itemToAspectCardinality ?? 'SINGLE')) === 'MULTI'
+                maxValues: 'MULTI' === strtoupper((string) ($constraint?->itemToAspectCardinality ?? 'SINGLE'))
                     ? null
                     : 1,
                 examples: 'SELECTION_ONLY' === strtoupper((string) ($constraint?->aspectMode ?? ''))
@@ -195,7 +195,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
         $offer = $this->inventory->createOffer(new Ebay\EbayOfferDetailsWithKeys(
             availableQuantity: $draft->quantity,
             categoryId: $draft->categoryId,
-            format: $draft->format === ListingFormat::Auction ? 'AUCTION' : 'FIXED_PRICE',
+            format: ListingFormat::Auction === $draft->format ? 'AUCTION' : 'FIXED_PRICE',
             listingDescription: $draft->description,
             listingPolicies: new Ebay\ListingPolicies(
                 fulfillmentPolicyId: $this->fulfillmentPolicyId,
@@ -213,7 +213,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
             sku: $draft->sku,
         ));
 
-        if ($offer->offerId === null) {
+        if (null === $offer->offerId) {
             throw new ListingRejectedException('ebay', [], 'eBay created no offer id.');
         }
 
@@ -227,7 +227,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
             // identity and is kept in raw.
             externalId: $offer->offerId,
             sku: $draft->sku,
-            url: $published->listingId !== null
+            url: null !== $published->listingId
                 ? sprintf('https://www.ebay.com/itm/%s', $published->listingId)
                 : null,
             publishedAt: new \DateTimeImmutable(),
@@ -249,7 +249,7 @@ final class EbayAdapter implements MarketplaceAdapterInterface
 
     private function parseRelevancy(?string $relevancy): ?float
     {
-        if ($relevancy === null || !preg_match('/^([\d.]+)\s*%?$/', trim($relevancy), $m)) {
+        if (null === $relevancy || !preg_match('/^([\d.]+)\s*%?$/', trim($relevancy), $m)) {
             return null;
         }
 
@@ -296,29 +296,17 @@ final class EbayAdapter implements MarketplaceAdapterInterface
             'payment_policy_id' => $this->paymentPolicyId,
             'return_policy_id' => $this->returnPolicyId,
         ] as $option => $value) {
-            if ($value === null || $value === '') {
+            if (null === $value || '' === $value) {
                 $missing[] = $option;
             }
         }
 
-        if ($missing === []) {
+        if ([] === $missing) {
             return;
         }
 
         // Fail here rather than at eBay, whose error for a missing policy names
         // neither the policy nor what to do about it.
-        throw new ListingRejectedException('ebay', array_map(
-            static fn (string $option): ListingViolation => new ListingViolation(
-                ViolationCode::CategoryMissing,
-                $option,
-                sprintf(
-                    'eBay cannot publish without "%s". Create the seller\'s business policies and '
-                    . 'merchant location first (Account API + createInventoryLocation), then supply '
-                    . 'the ids as connection options.',
-                    $option,
-                ),
-            ),
-            $missing,
-        ), sprintf('eBay seller is not bootstrapped: missing %s.', implode(', ', $missing)));
+        throw new ListingRejectedException('ebay', array_map(static fn (string $option): ListingViolation => new ListingViolation(ViolationCode::CategoryMissing, $option, sprintf('eBay cannot publish without "%s". Create the seller\'s business policies and merchant location first (Account API + createInventoryLocation), then supply the ids as connection options.', $option)), $missing), sprintf('eBay seller is not bootstrapped: missing %s.', implode(', ', $missing)));
     }
 }

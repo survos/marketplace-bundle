@@ -35,11 +35,7 @@ final readonly class MarketplaceService
 
     public function adapter(string $connectionName): MarketplaceAdapterInterface
     {
-        $config = $this->connections[$connectionName] ?? throw new MarketplaceConfigurationException(sprintf(
-            'No marketplace connection named "%s". Configured: %s.',
-            $connectionName,
-            $this->connections === [] ? '(none)' : implode(', ', array_keys($this->connections)),
-        ));
+        $config = $this->connections[$connectionName] ?? throw new MarketplaceConfigurationException(sprintf('No marketplace connection named "%s". Configured: %s.', $connectionName, [] === $this->connections ? '(none)' : implode(', ', array_keys($this->connections))));
 
         return $this->registry->create(new ConnectionConfiguration(
             name: $connectionName,
@@ -61,7 +57,7 @@ final readonly class MarketplaceService
      */
     public function validate(ListingDraft $draft, MarketplaceAdapterInterface $adapter, ?AttributeSchema $schema = null): array
     {
-        if ($schema === null && $draft->categoryId !== null) {
+        if (null === $schema && null !== $draft->categoryId) {
             $schema = $adapter->attributeSchema($draft->categoryId);
         }
 
@@ -80,7 +76,7 @@ final readonly class MarketplaceService
         $adapter = $this->adapter($connection);
         $suggestions = $adapter->suggestCategories($title);
 
-        if ($suggestions === []) {
+        if ([] === $suggestions) {
             $io->warning(sprintf('%s has no category suggestion for "%s".', $adapter->provider(), $title));
 
             return Command::SUCCESS;
@@ -91,7 +87,7 @@ final readonly class MarketplaceService
             array_map(static fn ($s): array => [
                 $s->categoryId,
                 $s->name,
-                $s->confidence !== null ? sprintf('%.0f%%', $s->confidence * 100) : '-',
+                null !== $s->confidence ? sprintf('%.0f%%', $s->confidence * 100) : '-',
                 $s->breadcrumb(),
             ], $suggestions),
         );
@@ -123,7 +119,7 @@ final readonly class MarketplaceService
     #[AsCommand('marketplace:connections', 'List configured marketplace connections')]
     public function connectionsCommand(SymfonyStyle $io): int
     {
-        if ($this->connections === []) {
+        if ([] === $this->connections) {
             $io->warning('No connections configured under survos_marketplace.connections.');
 
             return Command::SUCCESS;

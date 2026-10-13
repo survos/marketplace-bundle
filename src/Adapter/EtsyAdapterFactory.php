@@ -51,10 +51,7 @@ final readonly class EtsyAdapterFactory implements AdapterFactoryInterface
         if ($connection->sandbox) {
             // Etsy removed its sandbox. Saying so beats letting someone believe a
             // test listing went somewhere harmless.
-            throw new MarketplaceConfigurationException(
-                'Etsy has no sandbox — it was removed. Test against a real shop with Developer Mode '
-                . 'enabled and draft listings, per Etsy\'s API testing policy.',
-            );
+            throw new MarketplaceConfigurationException('Etsy has no sandbox — it was removed. Test against a real shop with Developer Mode enabled and draft listings, per Etsy\'s API testing policy.');
         }
 
         $credentials = new EtsyCredentials(

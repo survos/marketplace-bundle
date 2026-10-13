@@ -21,11 +21,11 @@ final readonly class MercadoLibreAdapterFactory implements AdapterFactoryInterfa
 {
     /**
      * @param (callable(string): AccessTokenProviderInterface)|null $tokenProviderFactory
-     *        null is legitimate: Mercado Libre's category tree, domain discovery and
-     *        attribute endpoints are PUBLIC. A category can be resolved and a listing
-     *        validated before any seller has authorized anything, which is most of
-     *        what this adapter is useful for. Publishing without a token fails loudly
-     *        in the transport rather than silently here.
+     *                                                                                    null is legitimate: Mercado Libre's category tree, domain discovery and
+     *                                                                                    attribute endpoints are PUBLIC. A category can be resolved and a listing
+     *                                                                                    validated before any seller has authorized anything, which is most of
+     *                                                                                    what this adapter is useful for. Publishing without a token fails loudly
+     *                                                                                    in the transport rather than silently here.
      */
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -40,7 +40,7 @@ final readonly class MercadoLibreAdapterFactory implements AdapterFactoryInterfa
 
     public function supports(string $driver): bool
     {
-        return $driver === 'mercadolibre' || $driver === 'meli';
+        return 'mercadolibre' === $driver || 'meli' === $driver;
     }
 
     public function create(ConnectionConfiguration $connection): MarketplaceAdapterInterface
@@ -52,11 +52,7 @@ final readonly class MercadoLibreAdapterFactory implements AdapterFactoryInterfa
         }
 
         $site = MercadoLibreSite::tryFrom($connection->site)
-            ?? throw new MarketplaceConfigurationException(sprintf(
-                'Unknown Mercado Libre site "%s". Expected one of: %s.',
-                $connection->site,
-                implode(', ', array_column(MercadoLibreSite::cases(), 'value')),
-            ));
+            ?? throw new MarketplaceConfigurationException(sprintf('Unknown Mercado Libre site "%s". Expected one of: %s.', $connection->site, implode(', ', array_column(MercadoLibreSite::cases(), 'value'))));
 
         $transport = new MercadoLibreTransport(
             $this->httpClient,
